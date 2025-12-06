@@ -1,8 +1,14 @@
 #!/usr/bin/env node
 
 const readline = require("readline");
+const fs = require("fs");
 
-function mulberry32(seed) {
+// const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
+// function debug(msg: string) {
+//     debugLog.write(msg + "\n");
+// }
+
+function mulberry32(seed: number) {
     let t = seed >>> 0;
     return function () {
         t += 0x6d2b79f5;
@@ -24,21 +30,33 @@ const rl = readline.createInterface({
     terminal: false,
 });
 
-/** @typedef {[number, number]} Coordinate */
+type TCoordinate = [number, number];
+interface IBrain {
+    walls: Set<string>;
+    width: number;
+    height: number;
+}
+interface IData {
+    config: {
+        width: number;
+        height: number;
+    };
+    wall: TCoordinate[];
+    bot: TCoordinate;
+    visible_gems: { position: TCoordinate; ttl: number }[];
+}
+type TDistanceArray = number[][];
 
 // #region Config
-const brain = {
-    /** @type {Set<Coordinate>} */
+const brain: IBrain = {
     walls: new Set(),
-    /** @type number */
     width: 0,
-    /** @type number */
     height: 0,
 };
 // #endregion
 
 // #region Functions
-function initializeBrain(data) {
+function initializeBrain(data: IData) {
     const {
         config: { width, height },
     } = data;
@@ -47,24 +65,24 @@ function initializeBrain(data) {
     brain.height = height;
 }
 
-function updateBrain(data) {
+function updateBrain(data: IData) {
     const { wall } = data;
 
     wall.forEach(([x, y]) => brain.walls.add(x.toString() + "," + y.toString()));
 }
 
-function dijkstra(data) {
+function dijkstra(data: IData) {
     const { bot } = data;
     const [botX, botY] = bot;
 
-    const distance = [];
+    const distance: TDistanceArray = [];
     distance[botX] = [];
     distance[botX][botY] = 0;
 
     const queue = [bot];
 
     while (queue.length > 0) {
-        const [x, y] = queue.shift();
+        const [x, y] = queue.shift() as TCoordinate;
         const neighbors = [
             [x - 1, y],
             [x + 1, y],
@@ -83,7 +101,7 @@ function dijkstra(data) {
     return distance;
 }
 
-function backtracking(distance, position) {
+function backtracking(distance: TDistanceArray, position: TCoordinate) {
     let [x, y] = position;
     while (true) {
         const neighbors = [
@@ -102,7 +120,7 @@ function backtracking(distance, position) {
     }
 }
 
-function getNextGem(data, distance) {
+function getNextGem(data: IData, distance: TDistanceArray) {
     const { visible_gems } = data;
     const gemDistances = visible_gems.map((gem) => {
         const dist = distance[gem.position[0]]?.[gem.position[1]] || Infinity;
@@ -116,8 +134,11 @@ function getNextGem(data, distance) {
 // #endregion
 
 // #region Main loop
-rl.on("line", (line) => {
-    const start = Date.now();
+let start;
+let end = Date.now();
+rl.on("line", (line: string) => {
+    start = Date.now();
+    console.error("Time since last tick: " + (start - end) + "ms");
     const data = JSON.parse(line);
     updateBrain(data);
 
@@ -136,6 +157,7 @@ rl.on("line", (line) => {
     console.log(move);
 
     firstTick = false;
-    // console.error("Tick time: " + (Date.now() - start) + "ms");
+    end = Date.now();
+    console.error("Tick time: " + (end - start) + "ms");
 });
 // #endregion
