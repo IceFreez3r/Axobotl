@@ -31,10 +31,15 @@ const rl = readline.createInterface({
 });
 
 type TCoordinate = [number, number];
+type TCoordinateString = `${number},${number}`;
 interface IBrain {
-    walls: Set<string>;
     width: number;
     height: number;
+    tick: number;
+    walls: Set<TCoordinateString>;
+    floors: Set<TCoordinateString>;
+    /** key = coordinates, value = death tick */
+    gems: Record<TCoordinateString, number>;
 }
 interface IData {
     config: {
@@ -42,16 +47,22 @@ interface IData {
         height: number;
     };
     wall: TCoordinate[];
+    floor: TCoordinate[];
     bot: TCoordinate;
     visible_gems: { position: TCoordinate; ttl: number }[];
+    initiative: boolean;
+    tick: number;
 }
 type TDistanceArray = number[][];
 
 // #region Config
 const brain: IBrain = {
-    walls: new Set(),
     width: 0,
     height: 0,
+    tick: 0,
+    walls: new Set(),
+    floors: new Set(),
+    gems: {},
 };
 // #endregion
 
@@ -66,9 +77,34 @@ function initializeBrain(data: IData) {
 }
 
 function updateBrain(data: IData) {
-    const { wall } = data;
+    const { wall, floor, visible_gems, tick } = data;
 
-    wall.forEach(([x, y]) => brain.walls.add(x.toString() + "," + y.toString()));
+    brain.tick = tick;
+    wall.forEach(([x, y]) => brain.walls.add(`${x},${y}`));
+    const visibleFloors = new Set<TCoordinateString>();
+    floor.forEach(([x, y]) => {
+        const pos: TCoordinateString = `${x},${y}`;
+        visibleFloors.add(pos);
+        brain.floors.add(pos);
+    });
+
+    const visibleGems: Set<TCoordinateString> = new Set();
+    visible_gems.forEach((gem) => {
+        const pos: TCoordinateString = `${gem.position[0]},${gem.position[1]}`;
+        const deathTick = gem.ttl + tick;
+        brain.gems[pos] = deathTick;
+        visibleGems.add(pos);
+    });
+    // Remove expired gems
+    (Object.entries(brain.gems) as [TCoordinateString, number][]).forEach(([pos, deathTick]) => {
+        if (deathTick < tick) {
+            delete brain.gems[pos];
+        }
+        // Remove memorized gems on visible floors without a visible gem -> someone picked it up
+        if (!visibleGems.has(pos) && visibleFloors.has(pos)) {
+            delete brain.gems[pos];
+        }
+    });
 }
 
 function dijkstra(data: IData) {
@@ -91,7 +127,7 @@ function dijkstra(data: IData) {
         ];
         neighbors.forEach(([nx, ny]) => {
             if (distance[nx]?.[ny] !== undefined) return; // already visited
-            if (brain.walls.has(nx.toString() + "," + ny.toString())) return; // wall
+            if (brain.walls.has(`${nx},${ny}`)) return; // wall
             if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0) return; // out of bounds
             distance[nx] ??= [];
             distance[nx][ny] = distance[x][y] + 1;
@@ -120,16 +156,24 @@ function backtracking(distance: TDistanceArray, position: TCoordinate) {
     }
 }
 
-function getNextGem(data: IData, distance: TDistanceArray) {
-    const { visible_gems } = data;
-    const gemDistances = visible_gems.map((gem) => {
-        const dist = distance[gem.position[0]]?.[gem.position[1]] || Infinity;
+function getNextGem(distance: TDistanceArray): TCoordinate | null {
+    const { gems } = brain;
+    const gemDistances = Object.entries(gems).map(([pos, deathTick]) => {
+        const [gemX, gemY] = pos.split(",").map(Number);
+
+        const dist = distance[gemX]?.[gemY] || Infinity;
         // Ignore gems that are too far away to reach in time
-        return dist <= gem.ttl ? dist : Infinity;
+        return dist <= deathTick - brain.tick ? dist : Infinity;
     });
     const minDistance = Math.min(...gemDistances);
+    if (minDistance === Infinity) {
+        return null;
+    }
     const targetGemIndex = gemDistances.indexOf(minDistance);
-    return visible_gems[targetGemIndex];
+    const targetGemPos = Object.keys(gems)[targetGemIndex];
+    const [targetX, targetY] = targetGemPos.split(",").map(Number);
+    console.error(["Target gem at", targetX, targetY, "distance", minDistance]);
+    return [targetX, targetY];
 }
 // #endregion
 
@@ -147,12 +191,12 @@ rl.on("line", (line: string) => {
     }
 
     const distance = dijkstra(data);
-    const nextGem = getNextGem(data, distance);
+    const nextGem = getNextGem(distance);
     let move;
     if (!nextGem) {
         move = moves[Math.floor(Math.random() * moves.length)];
     } else {
-        move = backtracking(distance, nextGem.position);
+        move = backtracking(distance, nextGem);
     }
     console.log(move);
 

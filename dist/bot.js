@@ -2,10 +2,10 @@
 "use strict";
 const readline = require("readline");
 const fs = require("fs");
-const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
-function debug(msg) {
-    debugLog.write(msg + "\n");
-}
+// const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
+// function debug(msg: string) {
+//     debugLog.write(msg + "\n");
+// }
 function mulberry32(seed) {
     let t = seed >>> 0;
     return function () {
@@ -26,9 +26,12 @@ const rl = readline.createInterface({
 });
 // #region Config
 const brain = {
-    walls: new Set(),
     width: 0,
     height: 0,
+    tick: 0,
+    walls: new Set(),
+    floors: new Set(),
+    gems: {},
 };
 // #endregion
 // #region Functions
@@ -38,8 +41,32 @@ function initializeBrain(data) {
     brain.height = height;
 }
 function updateBrain(data) {
-    const { wall } = data;
-    wall.forEach(([x, y]) => brain.walls.add(x.toString() + "," + y.toString()));
+    const { wall, floor, visible_gems, tick } = data;
+    brain.tick = tick;
+    wall.forEach(([x, y]) => brain.walls.add(`${x},${y}`));
+    const visibleFloors = new Set();
+    floor.forEach(([x, y]) => {
+        const pos = `${x},${y}`;
+        visibleFloors.add(pos);
+        brain.floors.add(pos);
+    });
+    const visibleGems = new Set();
+    visible_gems.forEach((gem) => {
+        const pos = `${gem.position[0]},${gem.position[1]}`;
+        const deathTick = gem.ttl + tick;
+        brain.gems[pos] = deathTick;
+        visibleGems.add(pos);
+    });
+    // Remove expired gems
+    Object.entries(brain.gems).forEach(([pos, deathTick]) => {
+        if (deathTick < tick) {
+            delete brain.gems[pos];
+        }
+        // Remove memorized gems on visible floors without a visible gem -> someone picked it up
+        if (!visibleGems.has(pos) && visibleFloors.has(pos)) {
+            delete brain.gems[pos];
+        }
+    });
 }
 function dijkstra(data) {
     const { bot } = data;
@@ -50,7 +77,6 @@ function dijkstra(data) {
     const queue = [bot];
     while (queue.length > 0) {
         const [x, y] = queue.shift();
-        debug(JSON.stringify({ x, y, queue: queue.length }));
         const neighbors = [
             [x - 1, y],
             [x + 1, y],
@@ -61,7 +87,7 @@ function dijkstra(data) {
             var _a, _b;
             if (((_a = distance[nx]) === null || _a === void 0 ? void 0 : _a[ny]) !== undefined)
                 return; // already visited
-            if (brain.walls.has(nx.toString() + "," + ny.toString()))
+            if (brain.walls.has(`${nx},${ny}`))
                 return; // wall
             if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0)
                 return; // out of bounds
@@ -70,7 +96,6 @@ function dijkstra(data) {
             queue.push([nx, ny]);
         });
     }
-    debug("End Dijkstra: " + JSON.stringify(distance));
     return distance;
 }
 function backtracking(distance, position) {
@@ -91,17 +116,24 @@ function backtracking(distance, position) {
         [x, y] = neighbors[minNeighborIndex];
     }
 }
-function getNextGem(data, distance) {
-    const { visible_gems } = data;
-    const gemDistances = visible_gems.map((gem) => {
+function getNextGem(distance) {
+    const { gems } = brain;
+    const gemDistances = Object.entries(gems).map(([pos, deathTick]) => {
         var _a;
-        const dist = ((_a = distance[gem.position[0]]) === null || _a === void 0 ? void 0 : _a[gem.position[1]]) || Infinity;
+        const [gemX, gemY] = pos.split(",").map(Number);
+        const dist = ((_a = distance[gemX]) === null || _a === void 0 ? void 0 : _a[gemY]) || Infinity;
         // Ignore gems that are too far away to reach in time
-        return dist <= gem.ttl ? dist : Infinity;
+        return dist <= deathTick - brain.tick ? dist : Infinity;
     });
     const minDistance = Math.min(...gemDistances);
+    if (minDistance === Infinity) {
+        return null;
+    }
     const targetGemIndex = gemDistances.indexOf(minDistance);
-    return visible_gems[targetGemIndex];
+    const targetGemPos = Object.keys(gems)[targetGemIndex];
+    const [targetX, targetY] = targetGemPos.split(",").map(Number);
+    console.error(["Target gem at", targetX, targetY, "distance", minDistance]);
+    return [targetX, targetY];
 }
 // #endregion
 // #region Main loop
@@ -116,13 +148,13 @@ rl.on("line", (line) => {
         initializeBrain(data);
     }
     const distance = dijkstra(data);
-    const nextGem = getNextGem(data, distance);
+    const nextGem = getNextGem(distance);
     let move;
     if (!nextGem) {
         move = moves[Math.floor(Math.random() * moves.length)];
     }
     else {
-        move = backtracking(distance, nextGem.position);
+        move = backtracking(distance, nextGem);
     }
     console.log(move);
     firstTick = false;
