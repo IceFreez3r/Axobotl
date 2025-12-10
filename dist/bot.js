@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 "use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 const readline = require("readline");
 const fs = require("fs");
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
@@ -84,14 +85,13 @@ function dijkstra(data) {
             [x, y + 1],
         ];
         neighbors.forEach(([nx, ny]) => {
-            var _a, _b;
-            if (((_a = distance[nx]) === null || _a === void 0 ? void 0 : _a[ny]) !== undefined)
+            if (distance[nx]?.[ny] !== undefined)
                 return; // already visited
             if (brain.walls.has(`${nx},${ny}`))
                 return; // wall
             if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0)
                 return; // out of bounds
-            (_b = distance[nx]) !== null && _b !== void 0 ? _b : (distance[nx] = []);
+            distance[nx] ??= [];
             distance[nx][ny] = distance[x][y] + 1;
             queue.push([nx, ny]);
         });
@@ -107,7 +107,7 @@ function backtracking(distance, position) {
             [x, y - 1],
             [x, y + 1],
         ];
-        const neighborDistances = neighbors.map(([tx, ty]) => { var _a, _b; return (_b = (_a = distance[tx]) === null || _a === void 0 ? void 0 : _a[ty]) !== null && _b !== void 0 ? _b : Infinity; });
+        const neighborDistances = neighbors.map(([tx, ty]) => distance[tx]?.[ty] ?? Infinity);
         const minDistance = Math.min(...neighborDistances);
         const minNeighborIndex = neighborDistances.indexOf(minDistance);
         if (distance[x][y] === 1) {
@@ -119,9 +119,8 @@ function backtracking(distance, position) {
 function getNextGem(distance) {
     const { gems } = brain;
     const gemDistances = Object.entries(gems).map(([pos, deathTick]) => {
-        var _a;
         const [gemX, gemY] = pos.split(",").map(Number);
-        const dist = ((_a = distance[gemX]) === null || _a === void 0 ? void 0 : _a[gemY]) || Infinity;
+        const dist = distance[gemX]?.[gemY] || Infinity;
         // Ignore gems that are too far away to reach in time
         return dist <= deathTick - brain.tick ? dist : Infinity;
     });
@@ -138,10 +137,10 @@ function getNextGem(distance) {
 // #endregion
 // #region Main loop
 let start;
-let end = Date.now();
+let end = 0n;
 rl.on("line", (line) => {
-    start = Date.now();
-    console.error("Time since last tick: " + (start - end) + "ms");
+    start = process.hrtime.bigint();
+    console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line);
     updateBrain(data);
     if (firstTick) {
@@ -158,7 +157,7 @@ rl.on("line", (line) => {
     }
     console.log(move);
     firstTick = false;
-    end = Date.now();
-    console.error("Tick time: " + (end - start) + "ms");
+    end = process.hrtime.bigint();
+    console.error("Tick time: " + (end - start).toLocaleString() + "ns");
 });
 // #endregion

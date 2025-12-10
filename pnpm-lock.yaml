@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@tsconfig/node18':
+        specifier: ^18.2.6
+        version: 18.2.6
       '@types/node':
         specifier: ^24.10.1
         version: 24.10.1
@@ -16,6 +19,9 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@tsconfig/node18@18.2.6':
+    resolution: {integrity: sha512-eAWQzAjPj18tKnDzmWstz4OyWewLUNBm9tdoN9LayzoboRktYx3Enk1ZXPmThj55L7c4VWYq/Bzq0A51znZfhw==}
 
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
@@ -29,6 +35,8 @@ packages:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
 snapshots:
+
+  '@tsconfig/node18@18.2.6': {}
 
   '@types/node@24.10.1':
     dependencies:

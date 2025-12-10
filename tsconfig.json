@@ -1,11 +1,7 @@
 {
+    "extends": "@tsconfig/node18/tsconfig.json",
     "compilerOptions": {
         "outDir": "./dist", // Output directory for compiled files
-        "module": "CommonJS", // Use CommonJS module system (require/import)
-        "target": "ES6", // Target ECMAScript version
-        "strict": true, // Enable strict type-checking options
-        "esModuleInterop": true, // Allow default imports from CommonJS modules
-        "skipLibCheck": true, // Skip type checking of declaration files
         "forceConsistentCasingInFileNames": true // Ensure consistent casing in imports
     },
     "include": ["src/**/*"], // Include all files in the src directory

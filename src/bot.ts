@@ -179,10 +179,10 @@ function getNextGem(distance: TDistanceArray): TCoordinate | null {
 
 // #region Main loop
 let start;
-let end = Date.now();
+let end = 0n;
 rl.on("line", (line: string) => {
-    start = Date.now();
-    console.error("Time since last tick: " + (start - end) + "ms");
+    start = process.hrtime.bigint();
+    console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line);
     updateBrain(data);
 
@@ -201,7 +201,7 @@ rl.on("line", (line: string) => {
     console.log(move);
 
     firstTick = false;
-    end = Date.now();
-    console.error("Tick time: " + (end - start) + "ms");
+    end = process.hrtime.bigint();
+    console.error("Tick time: " + (end - start).toLocaleString() + "ns");
 });
 // #endregion
