@@ -175,6 +175,18 @@ function getNextGem(distance: TDistanceArray): TCoordinate | null {
     console.error(["Target gem at", targetX, targetY, "distance", minDistance]);
     return [targetX, targetY];
 }
+
+function getValidMoves(data: IData, distance: TDistanceArray): string[] {
+    return moves.filter((dir) => {
+        let [x, y] = data.bot;
+        if (dir === "E") x += 1;
+        if (dir === "W") x -= 1;
+        if (dir === "S") y += 1;
+        if (dir === "N") y -= 1;
+        const dist = distance[x]?.[y];
+        return dist === 1;
+    });
+}
 // #endregion
 
 // #region Main loop
@@ -194,7 +206,8 @@ rl.on("line", (line: string) => {
     const nextGem = getNextGem(distance);
     let move;
     if (!nextGem) {
-        move = moves[Math.floor(Math.random() * moves.length)];
+        const validMoves = getValidMoves(data, distance);
+        move = validMoves[Math.floor(Math.random() * validMoves.length)];
     } else {
         move = backtracking(distance, nextGem);
     }
