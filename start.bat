@@ -1,2 +1,2 @@
 @echo off
-node bot.js
+node dist/bot.js
