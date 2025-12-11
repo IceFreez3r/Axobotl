@@ -5,5 +5,5 @@
         "forceConsistentCasingInFileNames": true // Ensure consistent casing in imports
     },
     "include": ["src/**/*"], // Include all files in the src directory
-    "exclude": ["node_modules", "dist"] // Exclude node_modules and dist directories
+    "exclude": ["node_modules", "dist", "**/__tests__/**"] // Exclude node_modules and dist directories
 }
