@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const readline = require("readline");
-const fs = require("fs");
+const binaryMatrix_1 = require("./binaryMatrix");
+const readline_1 = __importDefault(require("readline"));
+// import fs from "fs";
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
 // function debug(msg: string) {
 //     debugLog.write(msg + "\n");
@@ -20,7 +24,7 @@ const rng = mulberry32(1);
 Math.random = rng; // Because I will forget otherwise
 const moves = ["E", "W", "S", "N"];
 let firstTick = true;
-const rl = readline.createInterface({
+const rl = readline_1.default.createInterface({
     input: process.stdin,
     output: process.stdout,
     terminal: false,
@@ -30,8 +34,8 @@ const brain = {
     width: 0,
     height: 0,
     tick: 0,
-    walls: new Set(),
-    floors: new Set(),
+    walls: new binaryMatrix_1.BinaryMatrix(0, 0),
+    floors: new binaryMatrix_1.BinaryMatrix(0, 0),
     gems: {},
 };
 // #endregion
@@ -40,31 +44,34 @@ function initializeBrain(data) {
     const { config: { width, height }, } = data;
     brain.width = width;
     brain.height = height;
+    brain.walls = new binaryMatrix_1.BinaryMatrix(width, height);
+    brain.floors = new binaryMatrix_1.BinaryMatrix(width, height);
 }
 function updateBrain(data) {
     const { wall, floor, visible_gems, tick } = data;
     brain.tick = tick;
-    wall.forEach(([x, y]) => brain.walls.add(`${x},${y}`));
-    const visibleFloors = new Set();
+    wall.forEach(([x, y]) => brain.walls.set(x, y));
+    const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.width, brain.height);
     floor.forEach(([x, y]) => {
-        const pos = `${x},${y}`;
-        visibleFloors.add(pos);
-        brain.floors.add(pos);
+        visibleFloors.set(x, y);
+        brain.floors.set(x, y);
     });
-    const visibleGems = new Set();
+    const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.width, brain.height);
     visible_gems.forEach((gem) => {
-        const pos = `${gem.position[0]},${gem.position[1]}`;
+        const [x, y] = gem.position;
+        const pos = `${x},${y}`;
         const deathTick = gem.ttl + tick;
         brain.gems[pos] = deathTick;
-        visibleGems.add(pos);
+        visibleGems.set(x, y);
     });
     // Remove expired gems
     Object.entries(brain.gems).forEach(([pos, deathTick]) => {
         if (deathTick < tick) {
             delete brain.gems[pos];
         }
+        const [x, y] = pos.split(",").map(Number);
         // Remove memorized gems on visible floors without a visible gem -> someone picked it up
-        if (!visibleGems.has(pos) && visibleFloors.has(pos)) {
+        if (!visibleGems.get(x, y) && visibleFloors.get(x, y)) {
             delete brain.gems[pos];
         }
     });
@@ -87,7 +94,7 @@ function dijkstra(data) {
         neighbors.forEach(([nx, ny]) => {
             if (distance[nx]?.[ny] !== undefined)
                 return; // already visited
-            if (brain.walls.has(`${nx},${ny}`))
+            if (brain.walls.get(nx, ny))
                 return; // wall
             if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0)
                 return; // out of bounds
