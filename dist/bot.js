@@ -31,8 +31,7 @@ const rl = readline_1.default.createInterface({
 });
 // #region Config
 const brain = {
-    width: 0,
-    height: 0,
+    config: {},
     tick: 0,
     walls: new binaryMatrix_1.BinaryMatrix(0, 0),
     floors: new binaryMatrix_1.BinaryMatrix(0, 0),
@@ -41,22 +40,20 @@ const brain = {
 // #endregion
 // #region Functions
 function initializeBrain(data) {
-    const { config: { width, height }, } = data;
-    brain.width = width;
-    brain.height = height;
-    brain.walls = new binaryMatrix_1.BinaryMatrix(width, height);
-    brain.floors = new binaryMatrix_1.BinaryMatrix(width, height);
+    brain.config = data.config;
+    brain.walls = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
+    brain.floors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
 }
 function updateBrain(data) {
     const { wall, floor, visible_gems, tick } = data;
     brain.tick = tick;
     wall.forEach(([x, y]) => brain.walls.set(x, y));
-    const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.width, brain.height);
+    const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     floor.forEach(([x, y]) => {
         visibleFloors.set(x, y);
         brain.floors.set(x, y);
     });
-    const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.width, brain.height);
+    const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     visible_gems.forEach((gem) => {
         const [x, y] = gem.position;
         const pos = `${x},${y}`;
@@ -96,7 +93,7 @@ function dijkstra(data) {
                 return; // already visited
             if (brain.walls.get(nx, ny))
                 return; // wall
-            if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0)
+            if (nx >= brain.config.width || ny >= brain.config.height || nx < 0 || ny < 0)
                 return; // out of bounds
             distance[nx] ??= [];
             distance[nx][ny] = distance[x][y] + 1;
@@ -164,10 +161,10 @@ rl.on("line", (line) => {
     start = process.hrtime.bigint();
     console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line);
-    updateBrain(data);
     if (firstTick) {
         initializeBrain(data);
     }
+    updateBrain(data);
     const distance = dijkstra(data);
     const nextGem = getNextGem(distance);
     let move;

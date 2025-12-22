@@ -33,9 +33,28 @@ const rl = readline.createInterface({
 
 type TCoordinate = [number, number];
 type TCoordinateString = `${number},${number}`;
-interface IBrain {
+interface IConfig {
+    stage_key: string;
     width: number;
     height: number;
+    generator: "arena" | "cellular";
+    max_ticks: number;
+    emit_signals: boolean;
+    vis_radius: number;
+    max_gems: number;
+    gem_spawn_rate: number;
+    gem_ttl: number;
+    signal_radius: number;
+    signal_cutoff: number;
+    signal_noise: number;
+    signal_quantization: number;
+    signal_fade: number;
+    enable_debug: boolean;
+    timeout_scale: number;
+    bot_seed: number;
+}
+interface IBrain {
+    config: IConfig;
     tick: number;
     walls: BinaryMatrix;
     floors: BinaryMatrix;
@@ -43,10 +62,7 @@ interface IBrain {
     gems: Record<TCoordinateString, number>;
 }
 interface IData {
-    config: {
-        width: number;
-        height: number;
-    };
+    config: IConfig;
     wall: TCoordinate[];
     floor: TCoordinate[];
     bot: TCoordinate;
@@ -58,8 +74,7 @@ type TDistanceArray = number[][];
 
 // #region Config
 const brain: IBrain = {
-    width: 0,
-    height: 0,
+    config: {} as any,
     tick: 0,
     walls: new BinaryMatrix(0, 0),
     floors: new BinaryMatrix(0, 0),
@@ -69,14 +84,9 @@ const brain: IBrain = {
 
 // #region Functions
 function initializeBrain(data: IData) {
-    const {
-        config: { width, height },
-    } = data;
-
-    brain.width = width;
-    brain.height = height;
-    brain.walls = new BinaryMatrix(width, height);
-    brain.floors = new BinaryMatrix(width, height);
+    brain.config = data.config;
+    brain.walls = new BinaryMatrix(brain.config.width, brain.config.height);
+    brain.floors = new BinaryMatrix(brain.config.width, brain.config.height);
 }
 
 function updateBrain(data: IData) {
@@ -84,13 +94,13 @@ function updateBrain(data: IData) {
 
     brain.tick = tick;
     wall.forEach(([x, y]) => brain.walls.set(x, y));
-    const visibleFloors = new BinaryMatrix(brain.width, brain.height);
+    const visibleFloors = new BinaryMatrix(brain.config.width, brain.config.height);
     floor.forEach(([x, y]) => {
         visibleFloors.set(x, y);
         brain.floors.set(x, y);
     });
 
-    const visibleGems = new BinaryMatrix(brain.width, brain.height);
+    const visibleGems = new BinaryMatrix(brain.config.width, brain.config.height);
     visible_gems.forEach((gem) => {
         const [x, y] = gem.position;
         const pos: TCoordinateString = `${x},${y}`;
@@ -132,7 +142,7 @@ function dijkstra(data: IData) {
         neighbors.forEach(([nx, ny]) => {
             if (distance[nx]?.[ny] !== undefined) return; // already visited
             if (brain.walls.get(nx, ny)) return; // wall
-            if (nx >= brain.width || ny >= brain.height || nx < 0 || ny < 0) return; // out of bounds
+            if (nx >= brain.config.width || ny >= brain.config.height || nx < 0 || ny < 0) return; // out of bounds
             distance[nx] ??= [];
             distance[nx][ny] = distance[x][y] + 1;
             queue.push([nx, ny]);
@@ -200,11 +210,11 @@ rl.on("line", (line: string) => {
     start = process.hrtime.bigint();
     console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line);
-    updateBrain(data);
 
     if (firstTick) {
         initializeBrain(data);
     }
+    updateBrain(data);
 
     const distance = dijkstra(data);
     const nextGem = getNextGem(distance);
