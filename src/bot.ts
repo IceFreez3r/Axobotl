@@ -2,6 +2,7 @@
 
 import { BinaryMatrix } from "./binaryMatrix";
 import readline from "readline";
+import { IBrain, IData, TCoordinate, TCoordinateString, TDistanceArray } from "./types";
 // import fs from "fs";
 
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
@@ -30,47 +31,6 @@ const rl = readline.createInterface({
     output: process.stdout,
     terminal: false,
 });
-
-type TCoordinate = [number, number];
-type TCoordinateString = `${number},${number}`;
-interface IConfig {
-    stage_key: string;
-    width: number;
-    height: number;
-    generator: "arena" | "cellular";
-    max_ticks: number;
-    emit_signals: boolean;
-    vis_radius: number;
-    max_gems: number;
-    gem_spawn_rate: number;
-    gem_ttl: number;
-    signal_radius: number;
-    signal_cutoff: number;
-    signal_noise: number;
-    signal_quantization: number;
-    signal_fade: number;
-    enable_debug: boolean;
-    timeout_scale: number;
-    bot_seed: number;
-}
-interface IBrain {
-    config: IConfig;
-    tick: number;
-    walls: BinaryMatrix;
-    floors: BinaryMatrix;
-    /** key = coordinates, value = death tick */
-    gems: Record<TCoordinateString, number>;
-}
-interface IData {
-    config: IConfig;
-    wall: TCoordinate[];
-    floor: TCoordinate[];
-    bot: TCoordinate;
-    visible_gems: { position: TCoordinate; ttl: number }[];
-    initiative: boolean;
-    tick: number;
-}
-type TDistanceArray = number[][];
 
 // #region Config
 const brain: IBrain = {
