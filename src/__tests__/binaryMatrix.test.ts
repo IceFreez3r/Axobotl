@@ -18,4 +18,26 @@ describe("BinaryMatrix", () => {
         matrix.set(2, 4);
         expect(matrix.get(2, 4)).toEqual(1n);
     });
+
+    it("count returns the number of set bits", () => {
+        const matrix = new BinaryMatrix(5, 5);
+        matrix.set(1, 1);
+        matrix.set(3, 2);
+        matrix.set(0, 4);
+        matrix.set(0, 4);
+        expect(matrix.count()).toEqual(3);
+    });
+
+    it("iterate yields all set positions", () => {
+        const matrix = new BinaryMatrix(5, 5);
+        matrix.set(1, 1);
+        matrix.set(3, 2);
+        matrix.set(0, 4);
+        const positions = Array.from(matrix.iterate());
+        expect(positions).toEqual([
+            [1, 1],
+            [3, 2],
+            [0, 4],
+        ]);
+    });
 });
