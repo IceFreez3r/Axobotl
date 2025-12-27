@@ -6,6 +6,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const binaryMatrix_1 = require("./binaryMatrix");
 const readline_1 = __importDefault(require("readline"));
+const visibility_1 = require("./visibility");
 // import fs from "fs";
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
 // function debug(msg: string) {
@@ -36,6 +37,7 @@ const brain = {
     walls: new binaryMatrix_1.BinaryMatrix(0, 0),
     floors: new binaryMatrix_1.BinaryMatrix(0, 0),
     gems: {},
+    atan2: {},
 };
 // #endregion
 // #region Functions
@@ -43,6 +45,7 @@ function initializeBrain(data) {
     brain.config = data.config;
     brain.walls = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     brain.floors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
+    brain.atan2 = new visibility_1.Atan2(brain.config.width, brain.config.height);
 }
 function updateBrain(data) {
     const { wall, floor, visible_gems, tick } = data;
@@ -175,7 +178,24 @@ rl.on("line", (line) => {
     else {
         move = backtracking(distance, nextGem);
     }
-    console.log(move);
+    // Predict visibility after move
+    const visPos = [...data.bot];
+    if (move === "E")
+        visPos[0] += 1;
+    if (move === "W")
+        visPos[0] -= 1;
+    if (move === "S")
+        visPos[1] += 1;
+    if (move === "N")
+        visPos[1] -= 1;
+    const vis = (0, visibility_1.visibleFloors)(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
+    const highlight = [[...visPos, "#0000ff80"]];
+    for (let [x, y] of vis.iterate()) {
+        if (x === visPos[0] && y === visPos[1])
+            continue;
+        highlight.push([x, y, "#00ff0030"]);
+    }
+    console.log(move + " " + JSON.stringify({ highlight }));
     firstTick = false;
     end = process.hrtime.bigint();
     console.error("Tick time: " + (end - start).toLocaleString() + "ns");

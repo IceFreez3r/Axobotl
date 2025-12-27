@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { Atan2 } from "../visibility";
+import { Atan2, visibleFloors } from "../visibility";
+import { BinaryMatrix } from "../binaryMatrix";
 
 describe("Atan2 cache", () => {
     describe("getInterval", () => {
@@ -55,7 +56,7 @@ describe("Atan2 cache", () => {
         });
     });
 
-    [2, 3, 4].map((size) =>
+    [2, 3, 4].forEach((size) =>
         it(`should return consistent results for a ${size}x${size} grid`, () => {
             const atan2Spy = vi.spyOn(Math, "atan2");
             const atan2 = new Atan2(size, size);
@@ -82,4 +83,150 @@ describe("Atan2 cache", () => {
             atan2Spy.mockReset();
         })
     );
+});
+
+describe("visibleFloors", () => {
+    const atan2 = new Atan2(5, 5);
+    const config = {
+        vis_radius: 3,
+        width: 5,
+        height: 5,
+    } as any;
+
+    [
+        /**
+         * #####
+         * #...#
+         * #.x.#
+         * #...#
+         * #####
+         */
+        {
+            name: "empty box, bot in center",
+            walls: [
+                [0, 0],
+                [1, 0],
+                [2, 0],
+                [3, 0],
+                [4, 0],
+                [0, 1],
+                [0, 2],
+                [0, 3],
+                [0, 4],
+                [4, 1],
+                [4, 2],
+                [4, 3],
+                [4, 4],
+                [1, 4],
+                [2, 4],
+                [3, 4],
+            ],
+            bot: [2, 2],
+            visible: [
+                [1, 1],
+                [2, 1],
+                [3, 1],
+                [1, 2],
+                [2, 2],
+                [3, 2],
+                [1, 3],
+                [2, 3],
+                [3, 3],
+            ],
+        },
+        /**
+         * #####
+         * #x..#
+         * #.#.#
+         * #...#
+         * #####
+         */
+        {
+            name: "box with center wall, bot in corner",
+            walls: [
+                [0, 0],
+                [1, 0],
+                [2, 0],
+                [3, 0],
+                [4, 0],
+                [0, 1],
+                [0, 2],
+                [0, 3],
+                [0, 4],
+                [4, 1],
+                [4, 2],
+                [4, 3],
+                [4, 4],
+                [1, 4],
+                [2, 4],
+                [3, 4],
+                [2, 2],
+            ],
+            bot: [1, 1],
+            visible: [
+                [1, 1],
+                [2, 1],
+                [3, 1],
+                [1, 2],
+                [3, 2],
+                [1, 3],
+                [2, 3],
+            ],
+        },
+        /**
+         * #####
+         * #...#
+         * #x#.#
+         * #...#
+         * #####
+         */
+        {
+            name: "box with center wall, bot next to wall",
+            walls: [
+                [0, 0],
+                [1, 0],
+                [2, 0],
+                [3, 0],
+                [4, 0],
+                [0, 1],
+                [0, 2],
+                [0, 3],
+                [0, 4],
+                [4, 1],
+                [4, 2],
+                [4, 3],
+                [4, 4],
+                [1, 4],
+                [2, 4],
+                [3, 4],
+                [2, 2],
+            ],
+            bot: [1, 2],
+            visible: [
+                [1, 1],
+                [2, 1],
+                [1, 2],
+                [1, 3],
+                [2, 3],
+            ],
+        },
+    ].forEach(({ name, walls, bot, visible }) => {
+        it(`should mark correct floors for ${name}`, () => {
+            const wallMatrix = new BinaryMatrix(5, 5);
+            walls.forEach(([x, y]) => wallMatrix.set(x, y));
+            const floorMatrix = new BinaryMatrix(5, 5);
+            for (let y = 0; y < 5; y++) {
+                for (let x = 0; x < 5; x++) {
+                    if (wallMatrix.get(x, y) === 0n) {
+                        floorMatrix.set(x, y);
+                    }
+                }
+            }
+
+            const vis = visibleFloors(atan2, bot[0], bot[1], config, wallMatrix, floorMatrix);
+
+            expect(Array.from(vis.iterate())).toHaveLength(visible.length);
+            expect(Array.from(vis.iterate())).toEqual(visible);
+        });
+    });
 });

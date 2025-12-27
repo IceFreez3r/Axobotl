@@ -1,3 +1,63 @@
+import { AngleUnion } from "./angleUnion";
+import { BinaryMatrix } from "./binaryMatrix";
+import { IConfig } from "./types";
+
+export function visibleFloors(
+    atan2: Atan2,
+    x: number,
+    y: number,
+    config: IConfig,
+    walls: BinaryMatrix,
+    floors: BinaryMatrix
+): BinaryMatrix {
+    const r2 = config.vis_radius * config.vis_radius;
+
+    const minDX = Math.max(-x, -config.vis_radius);
+    const maxDX = Math.min(config.width - 1 - x, config.vis_radius);
+    const minDY = Math.max(-y, -config.vis_radius);
+    const maxDY = Math.min(config.height - 1 - y, config.vis_radius);
+
+    const cells = [];
+    for (let dy = minDY; dy <= maxDY; dy++) {
+        for (let dx = minDX; dx <= maxDX; dx++) {
+            if (dx === 0 && dy === 0) continue;
+            const dist2 = dx * dx + dy * dy;
+            if (dist2 > r2) continue;
+            cells.push([dx, dy, dist2]);
+        }
+    }
+    cells.sort((a, b) => a[2] - b[2]); // sort by distance squared
+
+    const vis = new BinaryMatrix(config.width, config.height);
+    vis.set(x, y);
+
+    const blocked = new AngleUnion(1e-12);
+    let pending: [number, number][] = [];
+
+    let dist = -1;
+    for (const [dx, dy, dist2] of cells) {
+        // When starting with a new distance ring, add all pending blocked intervals
+        if (dist2 > dist) {
+            pending.forEach(([pa, pb]) => blocked.addInterval(pa, pb));
+            pending = [];
+            dist = dist2;
+        }
+
+        const rx = x + dx;
+        const ry = y + dy;
+
+        const [a, b] = atan2.getInterval(dx, dy);
+        if (blocked.contains(a, b)) continue; // Cell is fully blocked
+        // Non-walls (including undiscovered floors) are visible
+        if (!walls.get(rx, ry)) vis.set(rx, ry);
+
+        // Treat walls and undiscovered floors as blocking
+        if (!floors.get(rx, ry)) pending.push([a, b]);
+    }
+
+    return vis;
+}
+
 export class Atan2 {
     cache: number[];
     width: number;

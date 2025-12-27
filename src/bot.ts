@@ -3,6 +3,7 @@
 import { BinaryMatrix } from "./binaryMatrix";
 import readline from "readline";
 import { IBrain, IData, TCoordinate, TCoordinateString, TDistanceArray } from "./types";
+import { Atan2, visibleFloors } from "./visibility";
 // import fs from "fs";
 
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
@@ -39,6 +40,7 @@ const brain: IBrain = {
     walls: new BinaryMatrix(0, 0),
     floors: new BinaryMatrix(0, 0),
     gems: {},
+    atan2: {} as any,
 };
 // #endregion
 
@@ -47,6 +49,7 @@ function initializeBrain(data: IData) {
     brain.config = data.config;
     brain.walls = new BinaryMatrix(brain.config.width, brain.config.height);
     brain.floors = new BinaryMatrix(brain.config.width, brain.config.height);
+    brain.atan2 = new Atan2(brain.config.width, brain.config.height);
 }
 
 function updateBrain(data: IData) {
@@ -169,7 +172,7 @@ let end = 0n;
 rl.on("line", (line: string) => {
     start = process.hrtime.bigint();
     console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
-    const data = JSON.parse(line);
+    const data = JSON.parse(line) as IData;
 
     if (firstTick) {
         initializeBrain(data);
@@ -185,7 +188,21 @@ rl.on("line", (line: string) => {
     } else {
         move = backtracking(distance, nextGem);
     }
-    console.log(move);
+
+    // Predict visibility after move
+    const visPos: [number, number] = [...data.bot];
+    if (move === "E") visPos[0] += 1;
+    if (move === "W") visPos[0] -= 1;
+    if (move === "S") visPos[1] += 1;
+    if (move === "N") visPos[1] -= 1;
+    const vis = visibleFloors(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
+    const highlight = [[...visPos, "#0000ff80"]];
+    for (let [x, y] of vis.iterate()) {
+        if (x === visPos[0] && y === visPos[1]) continue;
+        highlight.push([x, y, "#00ff0030"]);
+    }
+
+    console.log(move + " " + JSON.stringify({ highlight }));
 
     firstTick = false;
     end = process.hrtime.bigint();

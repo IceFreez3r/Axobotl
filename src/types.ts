@@ -1,4 +1,5 @@
 import { BinaryMatrix } from "./binaryMatrix";
+import { Atan2 } from "./visibility";
 
 export type TCoordinate = [number, number];
 export type TCoordinateString = `${number},${number}`;
@@ -29,6 +30,7 @@ export interface IBrain {
     floors: BinaryMatrix;
     /** key = coordinates, value = death tick */
     gems: Record<TCoordinateString, number>;
+    atan2: Atan2;
 }
 export interface IData {
     config: IConfig;
