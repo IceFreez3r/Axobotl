@@ -8,7 +8,7 @@ export function visibleFloors(
     y: number,
     config: IConfig,
     walls: BinaryMatrix,
-    floors: BinaryMatrix
+    floors: (number | undefined)[]
 ): BinaryMatrix {
     const r2 = config.vis_radius * config.vis_radius;
 
@@ -52,7 +52,7 @@ export function visibleFloors(
         if (!walls.get(rx, ry)) vis.set(rx, ry);
 
         // Treat walls and undiscovered floors as blocking
-        if (!floors.get(rx, ry)) pending.push([a, b]);
+        if (!floors[ry * config.width + rx] !== undefined) pending.push([a, b]);
     }
 
     return vis;

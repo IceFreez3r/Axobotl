@@ -214,11 +214,11 @@ describe("visibleFloors", () => {
         it(`should mark correct floors for ${name}`, () => {
             const wallMatrix = new BinaryMatrix(5, 5);
             walls.forEach(([x, y]) => wallMatrix.set(x, y));
-            const floorMatrix = new BinaryMatrix(5, 5);
+            const floorMatrix: number[] = new Array(5 * 5);
             for (let y = 0; y < 5; y++) {
                 for (let x = 0; x < 5; x++) {
                     if (wallMatrix.get(x, y) === 0n) {
-                        floorMatrix.set(x, y);
+                        floorMatrix[y * 5 + x] = 1;
                     }
                 }
             }

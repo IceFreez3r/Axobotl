@@ -1,6 +1,7 @@
 import { BinaryMatrix } from "./binaryMatrix";
 import { Atan2 } from "./visibility";
 
+export type TMove = "E" | "W" | "S" | "N";
 export type TCoordinate = [number, number];
 export type TCoordinateString = `${number},${number}`;
 export interface IConfig {
@@ -27,10 +28,12 @@ export interface IBrain {
     config: IConfig;
     tick: number;
     walls: BinaryMatrix;
-    floors: BinaryMatrix;
+    /** Sparse array with last seen tick of each floor */
+    floors: (number | undefined)[];
     /** key = coordinates, value = death tick */
     gems: Record<TCoordinateString, number>;
     atan2: Atan2;
+    highlight: [number, number, string][];
 }
 export interface IData {
     config: IConfig;

@@ -35,16 +35,17 @@ const brain = {
     config: {},
     tick: 0,
     walls: new binaryMatrix_1.BinaryMatrix(0, 0),
-    floors: new binaryMatrix_1.BinaryMatrix(0, 0),
+    floors: [],
     gems: {},
     atan2: {},
+    highlight: [],
 };
 // #endregion
 // #region Functions
 function initializeBrain(data) {
     brain.config = data.config;
     brain.walls = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
-    brain.floors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
+    brain.floors = new Array(brain.config.width * brain.config.height);
     brain.atan2 = new visibility_1.Atan2(brain.config.width, brain.config.height);
 }
 function updateBrain(data) {
@@ -54,7 +55,8 @@ function updateBrain(data) {
     const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     floor.forEach(([x, y]) => {
         visibleFloors.set(x, y);
-        brain.floors.set(x, y);
+        // Store last seen tick
+        brain.floors[y * brain.config.width + x] = tick;
     });
     const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     visible_gems.forEach((gem) => {
@@ -75,9 +77,10 @@ function updateBrain(data) {
             delete brain.gems[pos];
         }
     });
+    // Reset highlight every tick
+    brain.highlight = [];
 }
-function dijkstra(data) {
-    const { bot } = data;
+function dijkstra(bot) {
     const [botX, botY] = bot;
     const distance = [];
     distance[botX] = [];
@@ -138,12 +141,12 @@ function getNextGem(distance) {
     const targetGemIndex = gemDistances.indexOf(minDistance);
     const targetGemPos = Object.keys(gems)[targetGemIndex];
     const [targetX, targetY] = targetGemPos.split(",").map(Number);
-    console.error(["Target gem at", targetX, targetY, "distance", minDistance]);
+    brain.highlight.push([targetX, targetY, "#ff000080"]);
     return [targetX, targetY];
 }
-function getValidMoves(data, distance) {
+function getValidMoves(bot, distance) {
     return moves.filter((dir) => {
-        let [x, y] = data.bot;
+        let [x, y] = bot;
         if (dir === "E")
             x += 1;
         if (dir === "W")
@@ -155,6 +158,75 @@ function getValidMoves(data, distance) {
         const dist = distance[x]?.[y];
         return dist === 1;
     });
+}
+function lastSeenScore(x, y) {
+    const lastSeen = brain.floors[y * brain.config.width + x];
+    if (lastSeen === undefined)
+        return 1; // never seen -> max score
+    // brain.highlight.push([x, y, `#ffff00${percentToHex(((brain.tick - lastSeen) / brain.config.max_ticks) * 2)}`]);
+    return (brain.tick - lastSeen) / brain.config.max_ticks;
+}
+function distanceScore(x, y, distance, maxDistance) {
+    const dist = distance[x][y];
+    if (dist === undefined || !isFinite(dist))
+        return 0;
+    return 1 - dist / maxDistance;
+}
+function totalScore(x, y, distance, maxDistance) {
+    const dist = distance[x][y];
+    if (dist === undefined)
+        return 0;
+    // Penalty for very far positions
+    return lastSeenScore(x, y) * distanceScore(x, y, distance, maxDistance);
+}
+function getNextMove(bot) {
+    const distance = dijkstra(bot);
+    const nextGem = getNextGem(distance);
+    let target = null;
+    if (!nextGem) {
+        // No gem available, explore
+        // Calculate the score for each reachable position
+        let bestScore = -1;
+        let bestPos = null;
+        const maxDistance = distance.reduce((max, col) => {
+            const colMax = Math.max(...col.filter((d) => d !== undefined && isFinite(d)));
+            return Math.max(max, colMax);
+        }, 0);
+        for (let x = 0; x < brain.config.width; x++) {
+            for (let y = 0; y < brain.config.height; y++) {
+                if (brain.walls.get(x, y))
+                    continue;
+                const dist = distance[x]?.[y];
+                if (dist === undefined)
+                    continue; // not reachable
+                const score = totalScore(x, y, distance, maxDistance);
+                brain.highlight.push([x, y, `#00ff00${percentToHex(score)}`]);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestPos = [x, y];
+                }
+            }
+        }
+        if (bestPos) {
+            target = bestPos;
+            brain.highlight.push([...bestPos, "#ff000080"]);
+        }
+        else {
+            console.error("🚨🚨 No reachable position found, staying put 🚨🚨");
+            target = bot;
+        }
+    }
+    else {
+        target = nextGem;
+    }
+    const move = backtracking(distance, target);
+    return move;
+}
+function percentToHex(percent) {
+    const clamped = Math.max(0, Math.min(1, percent));
+    const intVal = Math.floor(clamped * 255);
+    const hex = intVal.toString(16).padStart(2, "0");
+    return hex;
 }
 // #endregion
 // #region Main loop
@@ -168,16 +240,7 @@ rl.on("line", (line) => {
         initializeBrain(data);
     }
     updateBrain(data);
-    const distance = dijkstra(data);
-    const nextGem = getNextGem(distance);
-    let move;
-    if (!nextGem) {
-        const validMoves = getValidMoves(data, distance);
-        move = validMoves[Math.floor(Math.random() * validMoves.length)];
-    }
-    else {
-        move = backtracking(distance, nextGem);
-    }
+    const move = getNextMove(data.bot);
     // Predict visibility after move
     const visPos = [...data.bot];
     if (move === "E")
@@ -188,14 +251,13 @@ rl.on("line", (line) => {
         visPos[1] += 1;
     if (move === "N")
         visPos[1] -= 1;
-    const vis = (0, visibility_1.visibleFloors)(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
-    const highlight = [[...visPos, "#0000ff80"]];
-    for (let [x, y] of vis.iterate()) {
-        if (x === visPos[0] && y === visPos[1])
-            continue;
-        highlight.push([x, y, "#00ff0030"]);
-    }
-    console.log(move + " " + JSON.stringify({ highlight }));
+    brain.highlight.push([...visPos, "#0000ff50"]);
+    // const vis = visibleFloors(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
+    // for (let [x, y] of vis.iterate()) {
+    //     if (x === visPos[0] && y === visPos[1]) continue;
+    //     highlight.push([x, y, "#00ff0030"]);
+    // }
+    console.log(move + " " + JSON.stringify({ highlight: brain.highlight }));
     firstTick = false;
     end = process.hrtime.bigint();
     console.error("Tick time: " + (end - start).toLocaleString() + "ns");
