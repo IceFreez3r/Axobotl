@@ -43,7 +43,7 @@ function visibleFloors(atan2, x, y, config, walls, floors) {
         if (!walls.get(rx, ry))
             vis.set(rx, ry);
         // Treat walls and undiscovered floors as blocking
-        if (!floors[ry * config.width + rx] !== undefined)
+        if (floors[ry * config.width + rx] === undefined)
             pending.push([a, b]);
     }
     return vis;

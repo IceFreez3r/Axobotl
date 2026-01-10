@@ -52,7 +52,7 @@ export function visibleFloors(
         if (!walls.get(rx, ry)) vis.set(rx, ry);
 
         // Treat walls and undiscovered floors as blocking
-        if (!floors[ry * config.width + rx] !== undefined) pending.push([a, b]);
+        if (floors[ry * config.width + rx] === undefined) pending.push([a, b]);
     }
 
     return vis;
