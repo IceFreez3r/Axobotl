@@ -171,10 +171,8 @@ function getValidMoves(bot: TCoordinate, distance: TDistanceArray): TMove[] {
 
 function lastSeenScore(x: number, y: number): number {
     const lastSeen = brain.floors[y * brain.config.width + x];
-    if (lastSeen === undefined) return 1; // never seen -> max score
-
-    // brain.highlight.push([x, y, `#ffff00${percentToHex(((brain.tick - lastSeen) / brain.config.max_ticks) * 2)}`]);
-    return (brain.tick - lastSeen) / brain.config.max_ticks;
+    if (lastSeen === undefined) return brain.config.max_ticks; // never seen -> max score
+    return brain.tick - lastSeen;
 }
 
 function distanceScore(x: number, y: number, distance: TDistanceArray, maxDistance: number): number {
@@ -186,15 +184,21 @@ function distanceScore(x: number, y: number, distance: TDistanceArray, maxDistan
 function totalScore(x: number, y: number, distance: TDistanceArray, maxDistance: number): number {
     const dist = distance[x][y];
     if (dist === undefined) return 0;
-    // Penalty for very far positions
-    return lastSeenScore(x, y) * distanceScore(x, y, distance, maxDistance);
+    const lsScore = lastSeenScore(x, y);
+    const dScore = distanceScore(x, y, distance, maxDistance);
+    const total = lsScore * dScore;
+    // brain.highlight.push([x, y, `#ffff00${percentToHex(lsScore / brain.config.max_ticks)}`]);
+    brain.highlight.push([x, y, `#00ff00${percentToHex(total / brain.config.max_ticks)}`]);
+    return total;
 }
 
 function getNextMove(bot: TCoordinate): TMove {
     const distance = dijkstra(bot);
     const nextGem = getNextGem(distance);
     let target: TCoordinate | null = null;
-    if (!nextGem) {
+    if (nextGem) {
+        target = nextGem;
+    } else {
         // No gem available, explore
         // Calculate the score for each reachable position
         let bestScore = -1;
@@ -209,7 +213,6 @@ function getNextMove(bot: TCoordinate): TMove {
                 const dist = distance[x]?.[y];
                 if (dist === undefined) continue; // not reachable
                 const score = totalScore(x, y, distance, maxDistance);
-                brain.highlight.push([x, y, `#00ff00${percentToHex(score)}`]);
                 if (score > bestScore) {
                     bestScore = score;
                     bestPos = [x, y];
@@ -223,8 +226,6 @@ function getNextMove(bot: TCoordinate): TMove {
             console.error("🚨🚨 No reachable position found, staying put 🚨🚨");
             target = bot;
         }
-    } else {
-        target = nextGem;
     }
     const move = backtracking(distance, target);
     return move;
@@ -258,7 +259,7 @@ rl.on("line", (line: string) => {
     if (move === "W") visPos[0] -= 1;
     if (move === "S") visPos[1] += 1;
     if (move === "N") visPos[1] -= 1;
-    brain.highlight.push([...visPos, "#0000ff50"]);
+    // brain.highlight.push([...visPos, "#0000ff50"]);
 
     // const vis = visibleFloors(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
     // for (let [x, y] of vis.iterate()) {
