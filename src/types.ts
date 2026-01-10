@@ -1,5 +1,5 @@
 import { BinaryMatrix } from "./binaryMatrix";
-import { Atan2 } from "./visibility";
+import { Atan2, Visibility } from "./visibility";
 
 export type TMove = "E" | "W" | "S" | "N";
 export type TCoordinate = [number, number];
@@ -33,6 +33,7 @@ export interface IBrain {
     /** key = coordinates, value = death tick */
     gems: Record<TCoordinateString, number>;
     atan2: Atan2;
+    visibility: Visibility;
     highlight: [number, number, string][];
 }
 export interface IData {

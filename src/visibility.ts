@@ -2,60 +2,60 @@ import { AngleUnion } from "./angleUnion";
 import { BinaryMatrix } from "./binaryMatrix";
 import { IConfig } from "./types";
 
-export function visibleFloors(
-    atan2: Atan2,
-    x: number,
-    y: number,
-    config: IConfig,
-    walls: BinaryMatrix,
-    floors: (number | undefined)[]
-): BinaryMatrix {
-    const r2 = config.vis_radius * config.vis_radius;
+export class Visibility {
+    private cache: BinaryMatrix[] = [];
 
-    const minDX = Math.max(-x, -config.vis_radius);
-    const maxDX = Math.min(config.width - 1 - x, config.vis_radius);
-    const minDY = Math.max(-y, -config.vis_radius);
-    const maxDY = Math.min(config.height - 1 - y, config.vis_radius);
+    constructor(private atan2: Atan2, private config: IConfig) {}
 
-    const cells = [];
-    for (let dy = minDY; dy <= maxDY; dy++) {
-        for (let dx = minDX; dx <= maxDX; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const dist2 = dx * dx + dy * dy;
-            if (dist2 > r2) continue;
-            cells.push([dx, dy, dist2]);
+    visibleFloors(x: number, y: number, walls: BinaryMatrix, floors: (number | undefined)[]): BinaryMatrix {
+        if (this.cache[y * this.config.width + x]) return this.cache[y * this.config.width + x];
+
+        const r2 = this.config.vis_radius * this.config.vis_radius;
+
+        const minDX = Math.max(-x, -this.config.vis_radius);
+        const maxDX = Math.min(this.config.width - 1 - x, this.config.vis_radius);
+        const minDY = Math.max(-y, -this.config.vis_radius);
+        const maxDY = Math.min(this.config.height - 1 - y, this.config.vis_radius);
+
+        const cells = [];
+        for (let dy = minDY; dy <= maxDY; dy++) {
+            for (let dx = minDX; dx <= maxDX; dx++) {
+                if (dx === 0 && dy === 0) continue;
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 >= r2) continue;
+                cells.push([dx, dy, dist2]);
+            }
         }
-    }
-    cells.sort((a, b) => a[2] - b[2]); // sort by distance squared
+        cells.sort((a, b) => a[2] - b[2]); // sort by distance squared
 
-    const vis = new BinaryMatrix(config.width, config.height);
-    vis.set(x, y);
+        const vis = new BinaryMatrix(this.config.width, this.config.height);
+        vis.set(x, y);
 
-    const blocked = new AngleUnion(1e-12);
-    let pending: [number, number][] = [];
+        const blocked = new AngleUnion(1e-12);
+        let pending: [number, number][] = [];
+        let preventCache = false;
 
-    let dist = -1;
-    for (const [dx, dy, dist2] of cells) {
-        // When starting with a new distance ring, add all pending blocked intervals
-        if (dist2 > dist) {
-            pending.forEach(([pa, pb]) => blocked.addInterval(pa, pb));
-            pending = [];
-            dist = dist2;
+        for (const [dx, dy, dist2] of cells) {
+            const [a, b] = this.atan2.getInterval(dx, dy);
+            if (blocked.contains(a, b)) continue; // Cell is fully blocked
+
+            const rx = x + dx;
+            const ry = y + dy;
+            const isWall = walls.get(rx, ry);
+            const isFloor = floors[ry * this.config.width + rx] !== undefined;
+            // Non-walls (including undiscovered floors) are visible
+            if (!isWall) vis.set(rx, ry);
+
+            // Treat walls and undiscovered floors as blocking
+            if (!isFloor) blocked.addInterval(a, b);
+
+            // Don't cache if undiscovered tiles are involved
+            preventCache ||= !isWall && !isFloor;
         }
 
-        const rx = x + dx;
-        const ry = y + dy;
-
-        const [a, b] = atan2.getInterval(dx, dy);
-        if (blocked.contains(a, b)) continue; // Cell is fully blocked
-        // Non-walls (including undiscovered floors) are visible
-        if (!walls.get(rx, ry)) vis.set(rx, ry);
-
-        // Treat walls and undiscovered floors as blocking
-        if (floors[ry * config.width + rx] === undefined) pending.push([a, b]);
+        if (!preventCache) this.cache[y * this.config.width + x] = vis;
+        return vis;
     }
-
-    return vis;
 }
 
 export class Atan2 {

@@ -1,53 +1,64 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Atan2 = void 0;
-exports.visibleFloors = visibleFloors;
+exports.Atan2 = exports.Visibility = void 0;
 const angleUnion_1 = require("./angleUnion");
 const binaryMatrix_1 = require("./binaryMatrix");
-function visibleFloors(atan2, x, y, config, walls, floors) {
-    const r2 = config.vis_radius * config.vis_radius;
-    const minDX = Math.max(-x, -config.vis_radius);
-    const maxDX = Math.min(config.width - 1 - x, config.vis_radius);
-    const minDY = Math.max(-y, -config.vis_radius);
-    const maxDY = Math.min(config.height - 1 - y, config.vis_radius);
-    const cells = [];
-    for (let dy = minDY; dy <= maxDY; dy++) {
-        for (let dx = minDX; dx <= maxDX; dx++) {
-            if (dx === 0 && dy === 0)
-                continue;
-            const dist2 = dx * dx + dy * dy;
-            if (dist2 > r2)
-                continue;
-            cells.push([dx, dy, dist2]);
-        }
+class Visibility {
+    atan2;
+    config;
+    cache = [];
+    constructor(atan2, config) {
+        this.atan2 = atan2;
+        this.config = config;
     }
-    cells.sort((a, b) => a[2] - b[2]); // sort by distance squared
-    const vis = new binaryMatrix_1.BinaryMatrix(config.width, config.height);
-    vis.set(x, y);
-    const blocked = new angleUnion_1.AngleUnion(1e-12);
-    let pending = [];
-    let dist = -1;
-    for (const [dx, dy, dist2] of cells) {
-        // When starting with a new distance ring, add all pending blocked intervals
-        if (dist2 > dist) {
-            pending.forEach(([pa, pb]) => blocked.addInterval(pa, pb));
-            pending = [];
-            dist = dist2;
+    visibleFloors(x, y, walls, floors) {
+        if (this.cache[y * this.config.width + x])
+            return this.cache[y * this.config.width + x];
+        const r2 = this.config.vis_radius * this.config.vis_radius;
+        const minDX = Math.max(-x, -this.config.vis_radius);
+        const maxDX = Math.min(this.config.width - 1 - x, this.config.vis_radius);
+        const minDY = Math.max(-y, -this.config.vis_radius);
+        const maxDY = Math.min(this.config.height - 1 - y, this.config.vis_radius);
+        const cells = [];
+        for (let dy = minDY; dy <= maxDY; dy++) {
+            for (let dx = minDX; dx <= maxDX; dx++) {
+                if (dx === 0 && dy === 0)
+                    continue;
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 >= r2)
+                    continue;
+                cells.push([dx, dy, dist2]);
+            }
         }
-        const rx = x + dx;
-        const ry = y + dy;
-        const [a, b] = atan2.getInterval(dx, dy);
-        if (blocked.contains(a, b))
-            continue; // Cell is fully blocked
-        // Non-walls (including undiscovered floors) are visible
-        if (!walls.get(rx, ry))
-            vis.set(rx, ry);
-        // Treat walls and undiscovered floors as blocking
-        if (floors[ry * config.width + rx] === undefined)
-            pending.push([a, b]);
+        cells.sort((a, b) => a[2] - b[2]); // sort by distance squared
+        const vis = new binaryMatrix_1.BinaryMatrix(this.config.width, this.config.height);
+        vis.set(x, y);
+        const blocked = new angleUnion_1.AngleUnion(1e-12);
+        let pending = [];
+        let preventCache = false;
+        for (const [dx, dy, dist2] of cells) {
+            const [a, b] = this.atan2.getInterval(dx, dy);
+            if (blocked.contains(a, b))
+                continue; // Cell is fully blocked
+            const rx = x + dx;
+            const ry = y + dy;
+            const isWall = walls.get(rx, ry);
+            const isFloor = floors[ry * this.config.width + rx] !== undefined;
+            // Non-walls (including undiscovered floors) are visible
+            if (!isWall)
+                vis.set(rx, ry);
+            // Treat walls and undiscovered floors as blocking
+            if (!isFloor)
+                blocked.addInterval(a, b);
+            // Don't cache if undiscovered tiles are involved
+            preventCache ||= !isWall && !isFloor;
+        }
+        if (!preventCache)
+            this.cache[y * this.config.width + x] = vis;
+        return vis;
     }
-    return vis;
 }
+exports.Visibility = Visibility;
 class Atan2 {
     cache;
     width;

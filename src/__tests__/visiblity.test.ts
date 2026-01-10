@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Atan2, visibleFloors } from "../visibility";
+import { Atan2, Visibility } from "../visibility";
 import { BinaryMatrix } from "../binaryMatrix";
 
 describe("Atan2 cache", () => {
@@ -85,7 +85,7 @@ describe("Atan2 cache", () => {
     );
 });
 
-describe("visibleFloors", () => {
+describe("Visibility", () => {
     const atan2 = new Atan2(5, 5);
     const config = {
         vis_radius: 3,
@@ -223,10 +223,36 @@ describe("visibleFloors", () => {
                 }
             }
 
-            const vis = visibleFloors(atan2, bot[0], bot[1], config, wallMatrix, floorMatrix);
+            const visibility = new Visibility(atan2, config);
+            const vis = visibility.visibleFloors(bot[0], bot[1], wallMatrix, floorMatrix);
 
             expect(Array.from(vis.iterate())).toHaveLength(visible.length);
             expect(Array.from(vis.iterate())).toEqual(visible);
         });
+    });
+
+    it("should cache on repeated calls", () => {
+        const wallMatrix = new BinaryMatrix(5, 5);
+        const floorMatrix: number[] = new Array(5 * 5).fill(1);
+
+        const visibility = new Visibility(atan2, config);
+        const vis1 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);
+        const vis2 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);
+
+        expect(vis1).toBe(vis2); // same instance from cache
+        expect(vis1.matrix).toEqual((1n << 25n) - 1n); // all visible
+    });
+
+    it("should not cache when undiscovered tiles are involved", () => {
+        const wallMatrix = new BinaryMatrix(5, 5);
+        const floorMatrix: (number | undefined)[] = new Array(5 * 5).fill(1);
+        floorMatrix[2 * 5 + 3] = undefined; // undiscovered floor
+
+        const visibility = new Visibility(atan2, config);
+        const vis1 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);
+        const vis2 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);
+
+        expect(vis1).not.toBe(vis2); // different instances
+        expect(vis1.matrix).toBeLessThan((1n << 25n) - 1n); // not all visible
     });
 });

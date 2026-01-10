@@ -3,7 +3,7 @@
 import { BinaryMatrix } from "./binaryMatrix";
 import readline from "readline";
 import { IBrain, IData, TCoordinate, TCoordinateString, TDistanceArray, TMove } from "./types";
-import { Atan2, visibleFloors } from "./visibility";
+import { Atan2, Visibility } from "./visibility";
 // import fs from "fs";
 
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
@@ -41,6 +41,7 @@ const brain: IBrain = {
     floors: [],
     gems: {},
     atan2: {} as any,
+    visibility: {} as any,
     highlight: [],
 };
 // #endregion
@@ -51,6 +52,7 @@ function initializeBrain(data: IData) {
     brain.walls = new BinaryMatrix(brain.config.width, brain.config.height);
     brain.floors = new Array(brain.config.width * brain.config.height);
     brain.atan2 = new Atan2(brain.config.width, brain.config.height);
+    brain.visibility = new Visibility(brain.atan2, brain.config);
 }
 
 function updateBrain(data: IData) {
@@ -243,12 +245,13 @@ function percentToHex(percent: number): string {
 let start;
 let end = 0n;
 rl.on("line", (line: string) => {
-    start = process.hrtime.bigint();
-    console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
+    // start = process.hrtime.bigint();
+    // console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line) as IData;
 
     if (firstTick) {
         initializeBrain(data);
+        firstTick = false;
     }
     updateBrain(data);
     const move = getNextMove(data.bot);
@@ -261,16 +264,15 @@ rl.on("line", (line: string) => {
     if (move === "N") visPos[1] -= 1;
     // brain.highlight.push([...visPos, "#0000ff50"]);
 
-    // const vis = visibleFloors(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
-    // for (let [x, y] of vis.iterate()) {
-    //     if (x === visPos[0] && y === visPos[1]) continue;
-    //     highlight.push([x, y, "#00ff0030"]);
-    // }
+    const vis = brain.visibility.visibleFloors(...visPos, brain.walls, brain.floors);
+    for (let [x, y] of vis.iterate()) {
+        if (x === visPos[0] && y === visPos[1]) continue;
+        brain.highlight.push([x, y, "#ff000080"]);
+    }
 
     console.log(move + " " + JSON.stringify({ highlight: brain.highlight }));
 
-    firstTick = false;
-    end = process.hrtime.bigint();
-    console.error("Tick time: " + (end - start).toLocaleString() + "ns");
+    // end = process.hrtime.bigint();
+    // console.error("Tick time: " + (end - start).toLocaleString() + "ns");
 });
 // #endregion

@@ -38,6 +38,7 @@ const brain = {
     floors: [],
     gems: {},
     atan2: {},
+    visibility: {},
     highlight: [],
 };
 // #endregion
@@ -47,6 +48,7 @@ function initializeBrain(data) {
     brain.walls = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     brain.floors = new Array(brain.config.width * brain.config.height);
     brain.atan2 = new visibility_1.Atan2(brain.config.width, brain.config.height);
+    brain.visibility = new visibility_1.Visibility(brain.atan2, brain.config);
 }
 function updateBrain(data) {
     const { wall, floor, visible_gems, tick } = data;
@@ -162,7 +164,7 @@ function getValidMoves(bot, distance) {
 function lastSeenScore(x, y) {
     const lastSeen = brain.floors[y * brain.config.width + x];
     if (lastSeen === undefined)
-        return 200; // never seen -> max score
+        return brain.config.max_ticks; // never seen -> max score
     return brain.tick - lastSeen;
 }
 function distanceScore(x, y, distance, maxDistance) {
@@ -178,8 +180,8 @@ function totalScore(x, y, distance, maxDistance) {
     const lsScore = lastSeenScore(x, y);
     const dScore = distanceScore(x, y, distance, maxDistance);
     const total = lsScore * dScore;
-    // brain.highlight.push([x, y, `#ffff00${percentToHex(lsScore / brain.config.max_ticks)}`]);
-    brain.highlight.push([x, y, `#00ff00${percentToHex(total / brain.config.max_ticks)}`]);
+    brain.highlight.push([x, y, `#ffff00${percentToHex(lsScore / brain.config.max_ticks)}`]);
+    // brain.highlight.push([x, y, `#00ff00${percentToHex(total / brain.config.max_ticks)}`]);
     return total;
 }
 function getNextMove(bot) {
@@ -235,11 +237,12 @@ function percentToHex(percent) {
 let start;
 let end = 0n;
 rl.on("line", (line) => {
-    start = process.hrtime.bigint();
-    console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
+    // start = process.hrtime.bigint();
+    // console.error("Time since last tick: " + (start - end).toLocaleString() + "ns");
     const data = JSON.parse(line);
     if (firstTick) {
         initializeBrain(data);
+        firstTick = false;
     }
     updateBrain(data);
     const move = getNextMove(data.bot);
@@ -254,14 +257,14 @@ rl.on("line", (line) => {
     if (move === "N")
         visPos[1] -= 1;
     // brain.highlight.push([...visPos, "#0000ff50"]);
-    // const vis = visibleFloors(brain.atan2, ...visPos, brain.config, brain.walls, brain.floors);
-    // for (let [x, y] of vis.iterate()) {
-    //     if (x === visPos[0] && y === visPos[1]) continue;
-    //     highlight.push([x, y, "#00ff0030"]);
-    // }
+    const vis = brain.visibility.visibleFloors(...visPos, brain.walls, brain.floors);
+    for (let [x, y] of vis.iterate()) {
+        if (x === visPos[0] && y === visPos[1])
+            continue;
+        brain.highlight.push([x, y, "#ff000080"]);
+    }
     console.log(move + " " + JSON.stringify({ highlight: brain.highlight }));
-    firstTick = false;
-    end = process.hrtime.bigint();
-    console.error("Tick time: " + (end - start).toLocaleString() + "ns");
+    // end = process.hrtime.bigint();
+    // console.error("Tick time: " + (end - start).toLocaleString() + "ns");
 });
 // #endregion
