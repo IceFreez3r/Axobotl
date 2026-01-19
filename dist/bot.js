@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const binaryMatrix_1 = require("./binaryMatrix");
 const readline_1 = __importDefault(require("readline"));
 const visibility_1 = require("./visibility");
+const signal_1 = require("./signal");
 // import fs from "fs";
 // const debugLog = fs.createWriteStream("debug.log", { flags: "w", flush: true });
 // function debug(msg: string) {
@@ -52,6 +53,8 @@ function initializeBrain(data) {
 }
 function updateBrain(data) {
     const { wall, floor, visible_gems, tick } = data;
+    // Reset highlight every tick
+    brain.highlight = [];
     brain.tick = tick;
     wall.forEach(([x, y]) => brain.walls.set(x, y));
     const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
@@ -60,6 +63,7 @@ function updateBrain(data) {
         // Store last seen tick
         brain.floors[y * brain.config.width + x] = tick;
     });
+    (0, signal_1.ignoreFloorsBySignal)(brain, data);
     const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     visible_gems.forEach((gem) => {
         const [x, y] = gem.position;
@@ -79,8 +83,6 @@ function updateBrain(data) {
             delete brain.gems[pos];
         }
     });
-    // Reset highlight every tick
-    brain.highlight = [];
 }
 function dijkstra(bot) {
     const [botX, botY] = bot;
@@ -143,7 +145,6 @@ function getNextGem(distance) {
     const targetGemIndex = gemDistances.indexOf(minDistance);
     const targetGemPos = Object.keys(gems)[targetGemIndex];
     const [targetX, targetY] = targetGemPos.split(",").map(Number);
-    brain.highlight.push([targetX, targetY, "#ff000080"]);
     return [targetX, targetY];
 }
 function getValidMoves(bot, distance) {
@@ -180,7 +181,7 @@ function totalScore(x, y, distance, maxDistance) {
     const lsScore = lastSeenScore(x, y);
     const dScore = distanceScore(x, y, distance, maxDistance);
     const total = lsScore * dScore;
-    brain.highlight.push([x, y, `#ffff00${percentToHex(lsScore / brain.config.max_ticks)}`]);
+    brain.highlight.push([x, y, `#ffff00${percentToHex(lsScore / brain.config.max_ticks, 0.5)}`]);
     // brain.highlight.push([x, y, `#00ff00${percentToHex(total / brain.config.max_ticks)}`]);
     return total;
 }
@@ -216,19 +217,19 @@ function getNextMove(bot) {
         }
         if (bestPos) {
             target = bestPos;
-            brain.highlight.push([...bestPos, "#ff000080"]);
         }
         else {
             console.error("🚨🚨 No reachable position found, staying put 🚨🚨");
             target = bot;
         }
     }
+    brain.highlight.push([...target, "#ff000080"]);
     const move = backtracking(distance, target);
     return move;
 }
-function percentToHex(percent) {
+function percentToHex(percent, max = 1) {
     const clamped = Math.max(0, Math.min(1, percent));
-    const intVal = Math.floor(clamped * 255);
+    const intVal = Math.floor(clamped * 255 * max);
     const hex = intVal.toString(16).padStart(2, "0");
     return hex;
 }
@@ -261,7 +262,7 @@ rl.on("line", (line) => {
     for (let [x, y] of vis.iterate()) {
         if (x === visPos[0] && y === visPos[1])
             continue;
-        brain.highlight.push([x, y, "#ff000080"]);
+        brain.highlight.push([x, y, "#ff000030"]);
     }
     console.log(move + " " + JSON.stringify({ highlight: brain.highlight }));
     // end = process.hrtime.bigint();

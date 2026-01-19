@@ -41,6 +41,7 @@ export interface IData {
     wall: TCoordinate[];
     floor: TCoordinate[];
     bot: TCoordinate;
+    signal_level: number;
     visible_gems: { position: TCoordinate; ttl: number }[];
     initiative: boolean;
     tick: number;
