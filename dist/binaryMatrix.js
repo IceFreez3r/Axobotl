@@ -2,12 +2,12 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BinaryMatrix = void 0;
 class BinaryMatrix {
-    matrix;
     width;
+    height;
+    matrix = 0n;
     constructor(width, height) {
-        this.matrix = 0n;
         this.width = width;
-        // Height is actually ignored, hihi
+        this.height = height;
     }
     set(x, y) {
         const shift = y * this.width + x;
@@ -36,6 +36,20 @@ class BinaryMatrix {
                 yield [x, y];
             }
         }
+    }
+    display() {
+        let display = "";
+        let m = this.matrix;
+        let col = 0;
+        for (let i = 0n; m; i++, m >>= 1n, col = (col + 1) % this.width) {
+            if (m & 1n)
+                display += "#";
+            else
+                display += " ";
+            if (col === this.width - 1)
+                display += "\n";
+        }
+        return display;
     }
 }
 exports.BinaryMatrix = BinaryMatrix;

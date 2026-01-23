@@ -40,4 +40,13 @@ describe("BinaryMatrix", () => {
             [0, 4],
         ]);
     });
+
+    it("displays the matrix as a string", () => {
+        const matrix = new BinaryMatrix(5, 5);
+        matrix.set(1, 1);
+        matrix.set(3, 2);
+        matrix.set(0, 4);
+        const expectedDisplay = "     \n" + " #   \n" + "   # \n" + "     \n" + "#";
+        expect(matrix.display()).toEqual(expectedDisplay);
+    });
 });

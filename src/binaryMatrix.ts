@@ -1,12 +1,10 @@
 export class BinaryMatrix {
-    matrix: bigint;
-    width: number;
+    matrix: bigint = 0n;
 
-    constructor(width: number, height: number) {
-        this.matrix = 0n;
-        this.width = width;
-        // Height is actually ignored, hihi
-    }
+    constructor(
+        private width: number,
+        private height: number,
+    ) {}
 
     set(x: number, y: number): void {
         const shift = y * this.width + x;
@@ -38,5 +36,17 @@ export class BinaryMatrix {
                 yield [x, y];
             }
         }
+    }
+
+    display(): string {
+        let display = "";
+        let m = this.matrix;
+        let col = 0;
+        for (let i = 0n; m; i++, m >>= 1n, col = (col + 1) % this.width) {
+            if (m & 1n) display += "#";
+            else display += " ";
+            if (col === this.width - 1) display += "\n";
+        }
+        return display;
     }
 }
