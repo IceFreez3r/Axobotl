@@ -32,9 +32,7 @@ function ignoreFloorsBySignal(brain, data) {
                 continue;
             const rx = data.bot[0] + dx;
             const ry = data.bot[1] + dy;
-            if (brain.floors[ry * brain.config.width + rx] === undefined)
-                continue;
-            brain.floors[ry * brain.config.width + rx] = data.tick;
+            brain.lastChecked[ry * brain.config.width + rx] = data.tick;
             brain.highlight.push([rx, ry, "#00c8ffa2"]);
         }
     }

@@ -81,7 +81,7 @@ describe("Atan2 cache", () => {
             // only the test calls, others should be cached
             expect(atan2Spy).toHaveBeenCalledTimes(4 * 3 * 3);
             atan2Spy.mockReset();
-        })
+        }),
     );
 });
 
@@ -214,11 +214,11 @@ describe("Visibility", () => {
         it(`should mark correct floors for ${name}`, () => {
             const wallMatrix = new BinaryMatrix(5, 5);
             walls.forEach(([x, y]) => wallMatrix.set(x, y));
-            const floorMatrix: number[] = new Array(5 * 5);
+            const floorMatrix = new BinaryMatrix(5, 5);
             for (let y = 0; y < 5; y++) {
                 for (let x = 0; x < 5; x++) {
                     if (wallMatrix.get(x, y) === 0n) {
-                        floorMatrix[y * 5 + x] = 1;
+                        floorMatrix.set(x, y);
                     }
                 }
             }
@@ -233,7 +233,8 @@ describe("Visibility", () => {
 
     it("should cache on repeated calls", () => {
         const wallMatrix = new BinaryMatrix(5, 5);
-        const floorMatrix: number[] = new Array(5 * 5).fill(1);
+        const floorMatrix = new BinaryMatrix(5, 5);
+        floorMatrix.matrix |= BigInt((1 << 25) - 1);
 
         const visibility = new Visibility(atan2, config);
         const vis1 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);
@@ -245,8 +246,13 @@ describe("Visibility", () => {
 
     it("should not cache when undiscovered tiles are involved", () => {
         const wallMatrix = new BinaryMatrix(5, 5);
-        const floorMatrix: (number | undefined)[] = new Array(5 * 5).fill(1);
-        floorMatrix[2 * 5 + 3] = undefined; // undiscovered floor
+        const floorMatrix = new BinaryMatrix(5, 5);
+        floorMatrix.matrix |= BigInt(
+            (1 << 25) -
+                1 -
+                // Set 3,2 to unexplored
+                (1 << (2 * 5 + 3)),
+        );
 
         const visibility = new Visibility(atan2, config);
         const vis1 = visibility.visibleFloors(2, 2, wallMatrix, floorMatrix);

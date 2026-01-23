@@ -36,7 +36,8 @@ const brain = {
     config: {},
     tick: 0,
     walls: new binaryMatrix_1.BinaryMatrix(0, 0),
-    floors: [],
+    floors: new binaryMatrix_1.BinaryMatrix(0, 0),
+    lastChecked: [],
     gems: {},
     atan2: {},
     visibility: {},
@@ -47,7 +48,17 @@ const brain = {
 function initializeBrain(data) {
     brain.config = data.config;
     brain.walls = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
-    brain.floors = new Array(brain.config.width * brain.config.height);
+    // Initialize outer walls
+    for (let x = 0; x < brain.config.width; x++) {
+        brain.walls.set(x, 0);
+        brain.walls.set(x, brain.config.height - 1);
+    }
+    for (let y = 0; y < brain.config.height; y++) {
+        brain.walls.set(0, y);
+        brain.walls.set(brain.config.width - 1, y);
+    }
+    brain.floors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
+    brain.lastChecked = new Array(brain.config.width * brain.config.height);
     brain.atan2 = new visibility_1.Atan2(brain.config.width, brain.config.height);
     brain.visibility = new visibility_1.Visibility(brain.atan2, brain.config);
 }
@@ -60,8 +71,9 @@ function updateBrain(data) {
     const visibleFloors = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
     floor.forEach(([x, y]) => {
         visibleFloors.set(x, y);
+        brain.floors.set(x, y);
         // Store last seen tick
-        brain.floors[y * brain.config.width + x] = tick;
+        brain.lastChecked[y * brain.config.width + x] = tick;
     });
     (0, signal_1.ignoreFloorsBySignal)(brain, data);
     const visibleGems = new binaryMatrix_1.BinaryMatrix(brain.config.width, brain.config.height);
@@ -163,7 +175,9 @@ function getValidMoves(bot, distance) {
     });
 }
 function lastSeenScore(x, y) {
-    const lastSeen = brain.floors[y * brain.config.width + x];
+    if (brain.walls.get(x, y))
+        return 0;
+    const lastSeen = brain.lastChecked[y * brain.config.width + x];
     if (lastSeen === undefined)
         return brain.config.max_ticks; // never seen -> max score
     return brain.tick - lastSeen;

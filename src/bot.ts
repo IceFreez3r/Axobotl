@@ -39,7 +39,8 @@ const brain: IBrain = {
     config: {} as any,
     tick: 0,
     walls: new BinaryMatrix(0, 0),
-    floors: [],
+    floors: new BinaryMatrix(0, 0),
+    lastChecked: [],
     gems: {},
     atan2: {} as any,
     visibility: {} as any,
@@ -51,7 +52,17 @@ const brain: IBrain = {
 function initializeBrain(data: IData) {
     brain.config = data.config;
     brain.walls = new BinaryMatrix(brain.config.width, brain.config.height);
-    brain.floors = new Array(brain.config.width * brain.config.height);
+    // Initialize outer walls
+    for (let x = 0; x < brain.config.width; x++) {
+        brain.walls.set(x, 0);
+        brain.walls.set(x, brain.config.height - 1);
+    }
+    for (let y = 0; y < brain.config.height; y++) {
+        brain.walls.set(0, y);
+        brain.walls.set(brain.config.width - 1, y);
+    }
+    brain.floors = new BinaryMatrix(brain.config.width, brain.config.height);
+    brain.lastChecked = new Array(brain.config.width * brain.config.height);
     brain.atan2 = new Atan2(brain.config.width, brain.config.height);
     brain.visibility = new Visibility(brain.atan2, brain.config);
 }
@@ -67,8 +78,9 @@ function updateBrain(data: IData) {
     const visibleFloors = new BinaryMatrix(brain.config.width, brain.config.height);
     floor.forEach(([x, y]) => {
         visibleFloors.set(x, y);
+        brain.floors.set(x, y);
         // Store last seen tick
-        brain.floors[y * brain.config.width + x] = tick;
+        brain.lastChecked[y * brain.config.width + x] = tick;
     });
 
     ignoreFloorsBySignal(brain, data);
@@ -174,7 +186,8 @@ function getValidMoves(bot: TCoordinate, distance: TDistanceArray): TMove[] {
 }
 
 function lastSeenScore(x: number, y: number): number {
-    const lastSeen = brain.floors[y * brain.config.width + x];
+    if (brain.walls.get(x, y)) return 0;
+    const lastSeen = brain.lastChecked[y * brain.config.width + x];
     if (lastSeen === undefined) return brain.config.max_ticks; // never seen -> max score
     return brain.tick - lastSeen;
 }

@@ -5,9 +5,12 @@ import { IConfig } from "./types";
 export class Visibility {
     private cache: BinaryMatrix[] = [];
 
-    constructor(private atan2: Atan2, private config: IConfig) {}
+    constructor(
+        private atan2: Atan2,
+        private config: IConfig,
+    ) {}
 
-    visibleFloors(x: number, y: number, walls: BinaryMatrix, floors: (number | undefined)[]): BinaryMatrix {
+    visibleFloors(x: number, y: number, walls: BinaryMatrix, floors: BinaryMatrix): BinaryMatrix {
         if (this.cache[y * this.config.width + x]) return this.cache[y * this.config.width + x];
 
         const r2 = this.config.vis_radius * this.config.vis_radius;
@@ -32,17 +35,16 @@ export class Visibility {
         vis.set(x, y);
 
         const blocked = new AngleUnion(1e-12);
-        let pending: [number, number][] = [];
         let preventCache = false;
 
-        for (const [dx, dy, dist2] of cells) {
+        for (const [dx, dy] of cells) {
             const [a, b] = this.atan2.getInterval(dx, dy);
             if (blocked.contains(a, b)) continue; // Cell is fully blocked
 
             const rx = x + dx;
             const ry = y + dy;
             const isWall = walls.get(rx, ry);
-            const isFloor = floors[ry * this.config.width + rx] !== undefined;
+            const isFloor = floors.get(rx, ry);
             // Non-walls (including undiscovered floors) are visible
             if (!isWall) vis.set(rx, ry);
 

@@ -29,7 +29,8 @@ export interface IBrain {
     tick: number;
     walls: BinaryMatrix;
     /** Sparse array with last seen tick of each floor */
-    floors: (number | undefined)[];
+    floors: BinaryMatrix;
+    lastChecked: (number | undefined)[];
     /** key = coordinates, value = death tick */
     gems: Record<TCoordinateString, number>;
     atan2: Atan2;

@@ -34,16 +34,15 @@ class Visibility {
         const vis = new binaryMatrix_1.BinaryMatrix(this.config.width, this.config.height);
         vis.set(x, y);
         const blocked = new angleUnion_1.AngleUnion(1e-12);
-        let pending = [];
         let preventCache = false;
-        for (const [dx, dy, dist2] of cells) {
+        for (const [dx, dy] of cells) {
             const [a, b] = this.atan2.getInterval(dx, dy);
             if (blocked.contains(a, b))
                 continue; // Cell is fully blocked
             const rx = x + dx;
             const ry = y + dy;
             const isWall = walls.get(rx, ry);
-            const isFloor = floors[ry * this.config.width + rx] !== undefined;
+            const isFloor = floors.get(rx, ry);
             // Non-walls (including undiscovered floors) are visible
             if (!isWall)
                 vis.set(rx, ry);
